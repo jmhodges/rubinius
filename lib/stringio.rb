@@ -287,7 +287,7 @@ class StringIO
         end
 
         write(line)
-        write(DEFAULT_RECORD_SEPARATOR) if !line.empty? && line[-1] != ?\n
+        write(DEFAULT_RECORD_SEPARATOR) unless line[-1] == ?\n
       end
     end
 
@@ -512,7 +512,7 @@ class StringIO
       elsif sep.empty?
         if stop = @string.index("\n\n", @pos)
           stop += 2
-          line = @string[@pos .. stop - 2]
+          line = @string[@pos ... stop]
           while @string[stop] == ?\n
             stop += 1
           end
@@ -523,8 +523,9 @@ class StringIO
         end
       else
         if stop = @string.index(sep, @pos)
-          line = @string[@pos .. stop]
-          @pos = stop + 1
+          stop += sep.length
+          line = @string[@pos ... stop]
+          @pos = stop
         else
           line = @string[@pos .. -1]
           @pos = @string.size

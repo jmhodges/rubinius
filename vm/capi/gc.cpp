@@ -41,6 +41,10 @@ extern "C" {
     }
   }
 
+  void rb_gc_force_recycle(VALUE val) {
+    // NOTHING. We don't support this and never will.
+  }
+
   void rb_gc_mark(VALUE ptr) {
     Handle* handle = Handle::from(ptr);
     if(CAPI_REFERENCE_P(handle) && handle->object()->reference_p()) {
@@ -61,5 +65,12 @@ extern "C" {
     if(capi::Handle::valid_handle_p(env->state(), handle)) {
       rb_gc_mark(ptr);
     }
+  }
+
+  void rb_memerror() {
+    // MRI raises a NoMemError here, but we're going to just
+    // print out and error and exit.
+    fprintf(stderr, "[FATAL] Out of memory. Game Over.\n");
+    exit(EXIT_FAILURE);
   }
 }

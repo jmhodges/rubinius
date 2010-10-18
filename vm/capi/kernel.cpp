@@ -9,69 +9,6 @@
 using namespace rubinius;
 
 extern "C" {
-  VALUE rb_yield(VALUE argument_handle) {
-    NativeMethodEnvironment* env = NativeMethodEnvironment::get();
-
-    if (!rb_block_given_p()) {
-      rb_raise(rb_eLocalJumpError, "no block given", 0);
-    }
-
-    VALUE block_handle = env->get_handle(env->block());
-
-    return rb_funcall(block_handle, rb_intern("call"), 1, argument_handle);
-  }
-
-  VALUE rb_yield_values(int n, ...) {
-    NativeMethodEnvironment* env = NativeMethodEnvironment::get();
-
-    if (!rb_block_given_p()) {
-      rb_raise(rb_eLocalJumpError, "no block given", 0);
-    }
-
-    VALUE* vars = reinterpret_cast<VALUE*>(alloca(sizeof(VALUE) * n));
-
-    va_list args;
-    va_start(args, n);
-
-    for(int i = 0; i < n; ++i) {
-      vars[i] = va_arg(args, VALUE);
-    }
-
-    va_end(args);
-
-    VALUE block_handle = env->get_handle(env->block());
-
-    return rb_funcall2(block_handle, rb_intern("call"), n, vars);
-  }
-
-  int rb_block_given_p() {
-    NativeMethodEnvironment* env = NativeMethodEnvironment::get();
-    return RBX_RTEST(env->block());
-  }
-
-  void rb_need_block() {
-    if (!rb_block_given_p()) {
-      rb_raise(rb_eLocalJumpError, "no block given", 0);
-    }
-  }
-
-  VALUE rb_apply(VALUE recv, ID mid, VALUE args) {
-    NativeMethodEnvironment* env = NativeMethodEnvironment::get();
-    env->flush_cached_data();
-
-    Array* ary = capi::c_as<Array>(env->get_object(args));
-
-    Object* obj = env->get_object(recv);
-    Object* ret = obj->send(env->state(), env->current_call_frame(),
-        reinterpret_cast<Symbol*>(mid), ary, RBX_Qnil);
-    env->update_cached_data();
-
-    // An exception occurred
-    if(!ret) env->current_ep()->return_to(env);
-
-    return env->get_handle(ret);
-  }
-
 #define RB_EXC_BUFSIZE   256
 
   void rb_raise(VALUE error_handle, const char* format_string, ...) {
@@ -286,5 +223,101 @@ extern "C" {
   VALUE rb_block_proc() {
     NativeMethodEnvironment* env = NativeMethodEnvironment::get();
     return rb_funcall(rb_cProc, rb_intern("__from_block__"), 1, env->get_handle(env->block()));
+  }
+
+  // Hoisted from 1.8.7
+
+  static VALUE recursive_check(VALUE hash, VALUE obj) {
+    if(NIL_P(hash) || TYPE(hash) != T_HASH) {
+      return Qfalse;
+    } else {
+      VALUE list = rb_hash_aref(hash, ID2SYM(rb_frame_last_func()));
+
+      if(NIL_P(list) || TYPE(list) != T_HASH) return Qfalse;
+      if(NIL_P(rb_hash_lookup(list, obj))) return Qfalse;
+      return Qtrue;
+    }
+  }
+
+  static VALUE recursive_push(VALUE hash, VALUE obj) {
+    VALUE list, sym;
+
+    sym = ID2SYM(rb_frame_last_func());
+
+    if(NIL_P(hash) || TYPE(hash) != T_HASH) {
+      hash = rb_hash_new();
+      rb_thread_local_aset(rb_thread_current(),
+                           rb_intern("__recursive_key"), hash);
+      list = Qnil;
+    } else {
+      list = rb_hash_aref(hash, sym);
+    }
+
+    if(NIL_P(list) || TYPE(list) != T_HASH) {
+      list = rb_hash_new();
+      rb_hash_aset(hash, sym, list);
+    }
+
+    rb_hash_aset(list, obj, Qtrue);
+    return hash;
+  }
+
+  static void recursive_pop(VALUE hash, VALUE obj) {
+    VALUE list, sym;
+
+    sym = ID2SYM(rb_frame_last_func());
+
+    if(NIL_P(hash) || TYPE(hash) != T_HASH) {
+      VALUE symname;
+      VALUE thrname;
+      symname = rb_inspect(sym);
+      thrname = rb_inspect(rb_thread_current());
+
+      rb_raise(rb_eTypeError, "invalid inspect_tbl hash for %s in %s",
+          StringValuePtr(symname), StringValuePtr(thrname));
+    }
+
+    list = rb_hash_aref(hash, sym);
+
+    if(NIL_P(list) || TYPE(list) != T_HASH) {
+      VALUE symname = rb_inspect(sym);
+      VALUE thrname = rb_inspect(rb_thread_current());
+      rb_raise(rb_eTypeError, "invalid inspect_tbl list for %s in %s",
+          StringValuePtr(symname), StringValuePtr(thrname));
+    }
+    rb_hash_delete(list, obj);
+  }
+
+  VALUE rb_exec_recursive(VALUE (*func)(VALUE, VALUE, int),
+                          VALUE obj, VALUE arg)
+  {
+    VALUE hash = rb_thread_local_aref(rb_thread_current(),
+                                      rb_intern("__recursive_key"));
+    VALUE objid = rb_obj_id(obj);
+
+    if(recursive_check(hash, objid)) {
+      return (*func)(obj, arg, 1);
+    } else {
+      NativeMethodEnvironment* env = NativeMethodEnvironment::get();
+      VALUE ret = Qnil;
+
+      ExceptionPoint ep(env);
+      PLACE_EXCEPTION_POINT(ep);
+
+      bool unwinding = false;
+      hash = recursive_push(hash, objid);
+
+      if(unlikely(ep.jumped_to())) {
+        unwinding = true;
+      } else {
+        ret = (*func)(obj, arg, 0);
+      }
+
+      ep.pop(env);
+
+      recursive_pop(hash, objid);
+      if(unwinding) env->current_ep()->return_to(env);
+      return ret;
+    }
   }
 }

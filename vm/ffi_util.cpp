@@ -3,6 +3,7 @@
 #define _LARGEFILE_SOURCE 1
 #define _FILE_OFFSET_BITS 64
 
+#include <stdint.h>
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -105,6 +106,7 @@ int ffi_type_size(int type) {
   switch(type) {
     case RBX_FFI_TYPE_CHAR:
     case RBX_FFI_TYPE_UCHAR:
+    case RBX_FFI_TYPE_BOOL:
     return sizeof(char);
 
     case RBX_FFI_TYPE_SHORT:

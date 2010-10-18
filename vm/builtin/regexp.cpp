@@ -318,26 +318,52 @@ namespace rubinius {
     return Fixnum::from(result);
   }
 
-  static Tuple* _md_region_to_tuple(STATE, OnigRegion *region, int max) {
+  static Tuple* _md_region_to_tuple(STATE, OnigRegion *region, int pos) {
     Tuple* tup = Tuple::create(state, region->num_regs - 1);
     for(int i = 1; i < region->num_regs; i++) {
-      Tuple* sub = Tuple::from(state, 2,
-                               Fixnum::from(region->beg[i]),
-                               Fixnum::from(region->end[i]));
+      int beg = region->beg[i];
+
+      Tuple* sub;
+
+      // If onig says the beginning is less than 0, then it's indicating
+      // that there was no match for it. This happens with an optional
+      // match like (a)?. We want to preserve this knowledge so we
+      // don't add pos to it.
+      if(beg < 0) {
+        sub = Tuple::from(state, 2,
+                          Fixnum::from(region->beg[i]),
+                          Fixnum::from(region->end[i]));
+      } else {
+        sub = Tuple::from(state, 2,
+                          Fixnum::from(region->beg[i] + pos),
+                          Fixnum::from(region->end[i] + pos));
+      }
       tup->put(state, i - 1, sub);
     }
     return tup;
   }
 
-  static Object* get_match_data(STATE, OnigRegion *region, String* string, Regexp* regexp, int max) {
+  static Object* get_match_data(STATE, OnigRegion *region, String* string, Regexp* regexp, int pos) {
     MatchData* md = state->new_object<MatchData>(G(matchdata));
     md->source(state, string->string_dup(state));
     md->regexp(state, regexp);
-    Tuple* tup = Tuple::from(state, 2,
-                             Fixnum::from(region->beg[0]),
-                             Fixnum::from(region->end[0]));
-    md->full(state, tup);
-    md->region(state, _md_region_to_tuple(state, region, max));
+    // Unsure if the first region (the full match) can be less than 0 (meaning
+    // the match was length length but did still match). We have to support
+    // that for the > 0 case, so we'll do the same for 0.
+    //
+
+    if(region->beg[0] < 0) {
+      Tuple* tup = Tuple::from(state, 2,
+                               Fixnum::from(region->beg[0]),
+                               Fixnum::from(region->end[0]));
+      md->full(state, tup);
+    } else {
+      Tuple* tup = Tuple::from(state, 2,
+                               Fixnum::from(region->beg[0] + pos),
+                               Fixnum::from(region->end[0] + pos));
+      md->full(state, tup);
+    }
+    md->region(state, _md_region_to_tuple(state, region, pos));
     return md;
   }
 
@@ -391,7 +417,7 @@ namespace rubinius {
       return Qnil;
     }
 
-    md = get_match_data(state, region, string, this, max);
+    md = get_match_data(state, region, string, this, 0);
     onig_region_free(region, 1);
     return md;
   }
@@ -399,6 +425,7 @@ namespace rubinius {
   Object* Regexp::match_start(STATE, String* string, Fixnum* start) {
     int beg, max;
     const UChar *str;
+    const UChar *fin;
     OnigRegion *region;
     Object* md = Qnil;
 
@@ -406,11 +433,16 @@ namespace rubinius {
     region = onig_region_new();
 
     max = string->size();
+    native_int pos = start->to_native();
+
     str = (UChar*)string->c_str();
+    fin = str + max;
+
+    str += pos;
 
     int* back_match = onig_data->int_map_backward;
 
-    beg = onig_match(onig_data, str, str + max, str + start->to_native(), region,
+    beg = onig_match(onig_data, str, fin, str, region,
                      ONIG_OPTION_NONE);
 
     // Seems like onig must setup int_map_backward lazily, so we have to watch
@@ -429,7 +461,53 @@ namespace rubinius {
     }
 
     if(beg != ONIG_MISMATCH) {
-      md = get_match_data(state, region, string, this, max);
+      md = get_match_data(state, region, string, this, pos);
+    }
+
+    onig_region_free(region, 1);
+    return md;
+  }
+
+  Object* Regexp::search_from(STATE, String* string, Fixnum* start) {
+    int beg, max;
+    const UChar *str;
+    const UChar *fin;
+    OnigRegion *region;
+    Object* md = Qnil;
+
+    maybe_recompile(state);
+    region = onig_region_new();
+
+    max = string->size();
+    native_int pos = start->to_native();
+
+    str = (UChar*)string->c_str();
+    fin = str + max;
+
+    str += pos;
+
+    int* back_match = onig_data->int_map_backward;
+
+    beg = onig_search(onig_data, str, fin, str, fin,
+                      region, ONIG_OPTION_NONE);
+
+    // Seems like onig must setup int_map_backward lazily, so we have to watch
+    // for it to appear here.
+    if(onig_data->int_map_backward != back_match) {
+      native_int size = sizeof(int) * ONIG_CHAR_TABLE_SIZE;
+      ByteArray* ba = ByteArray::create(state, size);
+      memcpy(ba->raw_bytes(), onig_data->int_map_backward, size);
+
+      // Dispose of the old one.
+      free(onig_data->int_map_backward);
+
+      onig_data->int_map_backward = reinterpret_cast<int*>(ba->raw_bytes());
+
+      write_barrier(state, ba);
+    }
+
+    if(beg != ONIG_MISMATCH) {
+      md = get_match_data(state, region, string, this, pos);
     }
 
     onig_region_free(region, 1);

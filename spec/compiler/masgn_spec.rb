@@ -244,10 +244,8 @@ describe "A Masgn node" do
       g.cast_array
       g.push :self
       g.send :a, 0, true
-      g.dup
-      g.move_down 1
-      g.send :m=, 0, false
-      g.pop
+      g.swap
+      g.send :m=, 1, false
       g.pop
       g.push :true
     end
@@ -264,11 +262,36 @@ describe "A Masgn node" do
       g.make_array 1
       g.push :self
       g.send :a, 0, true
-      g.dup
-      g.move_down 1
-      g.send :m=, 0, false
+      g.swap
+      g.send :m=, 1, false
       g.pop
+      g.push :true
+    end
+  end
+
+  relates "t, *a[:m] = b" do
+    compile do |g|
+      ary = g.new_label
+      assign = g.new_label
+
+      g.push :self
+      g.send :b, 0, true
+
+      g.cast_multi_value
+
+      g.shift_array
+      g.set_local 0
       g.pop
+
+      g.cast_array
+      g.push :self
+      g.send :a, 0, true
+      g.swap
+      g.push_literal :m
+      g.swap
+      g.send :[]=, 2, false
+      g.pop
+
       g.push :true
     end
   end
@@ -1274,6 +1297,109 @@ describe "A Masgn node" do
       g.pop
 
       g.pop
+      g.push :true
+    end
+  end
+
+  relates "a, b = nil, lambda { a = 7 }" do
+    compile do |g|
+      g.push :nil
+
+      g.push :self
+      g.in_block_send :lambda, :none do |d|
+        d.push 7
+        d.set_local_depth 1, 0
+      end
+
+      g.rotate 2
+
+      g.set_local 0
+      g.pop
+
+      g.set_local 1
+      g.pop
+
+      g.push :true
+    end
+  end
+
+  relates "a, *b = lambda { b = 8 }, nil" do
+    compile do |g|
+      g.push :self
+      g.in_block_send :lambda, :none do |d|
+        d.push 8
+        d.set_local_depth 1, 1
+      end
+
+      g.push :nil
+      g.make_array 1
+
+      g.rotate 2
+
+      g.set_local 0
+      g.pop
+
+      g.cast_array
+      g.set_local 1
+      g.pop
+
+      g.push :true
+    end
+  end
+
+  relates "*a = lambda { a = 8 }" do
+    compile do |g|
+      g.push :self
+      g.in_block_send :lambda, :none do |d|
+        d.push 8
+        d.set_local_depth 1, 0
+      end
+
+      g.make_array 1
+
+      g.set_local 0
+      g.pop
+
+      g.push :true
+    end
+  end
+
+  relates "a, (b, *c), d = lambda { b = d }, [], nil" do
+    compile do |g|
+      g.push :self
+      g.in_block_send :lambda, :none do |d|
+        d.push_local_depth 1, 3
+        d.set_local_depth 1, 1
+      end
+
+      g.make_array 0
+      g.push :nil
+
+      g.rotate 3
+
+      g.set_local 0
+      g.pop
+
+      g.cast_array
+      g.shift_array
+      g.set_local 1
+      g.pop
+      g.dup
+      g.push_cpath_top
+      g.find_const :Array
+      g.swap
+      g.kind_of
+
+      is_array = g.new_label
+      g.git is_array
+      g.make_array 1
+      is_array.set!
+
+      g.set_local 2
+      g.pop
+      g.set_local 3
+      g.pop
+
       g.push :true
     end
   end

@@ -117,6 +117,7 @@ namespace thread {
       if(stack_size_) {
         pthread_attr_setstacksize(&attrs, stack_size_);
       }
+      pthread_attr_setdetachstate(&attrs, PTHREAD_CREATE_JOINABLE);
 
       return pthread_create(&native_, &attrs, trampoline, (void*)this);
     }
@@ -175,8 +176,14 @@ namespace thread {
       struct sched_param params;
 
       pthread_check(pthread_getschedparam(native_, &_policy, &params));
+#ifdef __OpenBSD__
+      // The shed_get_priority_max function is not exposed.
+      int max = 31;
+      int min = 0;
+#else
       int max = sched_get_priority_max(_policy);
       int min = sched_get_priority_min(_policy);
+#endif
 
       if(min > priority) {
         priority = min;

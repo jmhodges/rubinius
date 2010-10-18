@@ -146,7 +146,7 @@ containing the Rubinius standard library files.
         options.stop_parsing
       end
 
-      options.doc "Script is any valid Ruby source file (.rb) or a compiled Ruby file (.rbc)."
+      options.doc "Script is any valid Ruby source code file"
 
       options.doc "\nRuby options"
       options.on "-", "Read and evaluate code from STDIN" do
@@ -455,6 +455,11 @@ containing the Rubinius standard library files.
       Dir.chdir @directory if @directory
 
       if File.exist?(@script)
+        if IO.read(@script, 6) == "!RBIX\n"
+          STDERR.puts "Unable to load '#{@script}', it is not a Ruby source file"
+          exit 1
+        end
+
         $0 = @script
 
         CodeLoader.load_script @script, @debugging
@@ -535,6 +540,25 @@ containing the Rubinius standard library files.
       Process.exit! @exit_code
     end
 
+    def write_last_error(e)
+      unless path = Config['vm.crash_report_path']
+        path = "#{ENV['HOME']}/.rubinius_last_error"
+      end
+
+      File.open(path, "w") do |f|
+        f.puts "Rubinius Crash Report #rbxcrashreport"
+        f.puts ""
+        f.puts "[[Exception]]"
+        e.render("A toplevel exception occurred", f, false)
+
+        f.puts ""
+        f.puts "[[Version]]"
+        f.puts Rubinius.version
+      end
+    rescue Errno::EACCES
+      # Ignore writing the last error report
+    end
+
     # Orchestrate everything.
     def main
       begin
@@ -557,15 +581,17 @@ containing the Rubinius standard library files.
           raise e
 
         rescue SyntaxError => e
+          @exit_code = 1
+
           show_syntax_error(e)
 
           STDERR.puts "\nBacktrace:"
           STDERR.puts e.awesome_backtrace.show
+        rescue Object => e
           @exit_code = 1
 
-        rescue Object => e
+          write_last_error(e)
           e.render "An exception occurred #{@stage}"
-          @exit_code = 1
         end
 
       # We do this, run epilogue both on catching SystemExit and
@@ -592,7 +618,6 @@ containing the Rubinius standard library files.
         puts "Exception occurred during top-level exception output! (THIS IS BAD)"
         puts
         puts "Exception: #{exc.inspect} (#{exc.class})"
-        @exit_code = 128
       end
     end
   end

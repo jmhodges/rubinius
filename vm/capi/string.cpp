@@ -72,7 +72,7 @@ extern "C" {
     NativeMethodEnvironment* env = NativeMethodEnvironment::get();
 
     Handle* handle = Handle::from(str_handle);
-    env->check_tracked_handle(handle);
+    env->check_tracked_handle(handle, false);
 
     return handle->as_rstring(env);
   }
@@ -187,6 +187,15 @@ extern "C" {
 
   VALUE rb_str_new3(VALUE string) {
     return rb_str_dup(string);
+  }
+
+  VALUE rb_str_new4(VALUE string) {
+    if(rb_obj_frozen_p(string))
+      return string;
+
+    VALUE str = rb_obj_freeze(rb_str_dup(string));
+
+    return str;
   }
 
   VALUE rb_str_plus(VALUE self_handle, VALUE other_handle) {
