@@ -1,7 +1,7 @@
 module Rubinius
   module AST
     class Node
-      attr_accessor :line
+      attr_accessor :line, :column
 
       def self.transform(category, name, comment)
         Transforms.register category, name, self
@@ -43,6 +43,7 @@ module Rubinius
         end
       end
 
+      # FIXME add @column and column thing here
       def initialize(line)
         @line = line
       end

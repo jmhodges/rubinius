@@ -52,6 +52,7 @@ namespace melbourne {
       parse_state->verbose = RTEST(ruby_verbose);
       parse_state->magic_comments = new std::vector<bstring>;
       parse_state->start_lines = new std::list<StartPosition>;
+      parse_state->column = 1;
 
       return parse_state;
   }
@@ -241,13 +242,14 @@ namespace melbourne {
     static unsigned inside_case_args = 0;
 
     VALUE line, tree = Qnil;
-
+    VALUE column = INT2FIX(-1);
     if(!node) return tree;
 
     again:
 
     if(node) {
       line = INT2FIX(nd_line(node));
+      column = INT2FIX(node->column);
     } else {
       return rb_funcall(ptp, rb_intern("process_dangling_node"), 0);
     }
@@ -669,7 +671,7 @@ namespace melbourne {
     case NODE_ALIAS: {          /* u1 u2 (alias :blah :blah2) */
       VALUE to = process_parse_tree(parse_state, ptp, node->u2.node, locals);
       VALUE from = process_parse_tree(parse_state, ptp, node->u1.node, locals);
-      tree = rb_funcall(ptp, rb_sAlias, 3, line, to, from);
+      tree = rb_funcall(ptp, rb_sAlias, 4, line, column, to, from);
       break;
     }
     case NODE_UNDEF: {          /* u2    (undef instvar) */

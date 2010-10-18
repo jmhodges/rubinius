@@ -111,7 +111,7 @@ mel_yyerror(const char *, rb_parse_state*);
 char *ruby_sourcefile;          current source file
 int   ruby_sourceline;          current line no.
 */
-static int yylex(void*, void *);
+static int yylex(void*, void*, void *);
 
 
 #define BITSTACK_PUSH(stack, n) (stack = (stack<<1)|((n)&1))
@@ -289,6 +289,7 @@ static NODE *extract_block_vars(rb_parse_state *parse_state, NODE* node, var_tab
 %}
 
 %pure-parser
+%locations
 
 %union {
     NODE *node;
@@ -495,7 +496,7 @@ stmts           : none
 
 stmt            : kALIAS fitem {vps->lex_state = EXPR_FNAME;} fitem
                     {
-                        $$ = NEW_ALIAS($2, $4);
+                      $$ = NEW_ALIAS(@1, $2, $4);
                     }
                 | kALIAS tGVAR tGVAR
                     {
@@ -2888,16 +2889,16 @@ ps_nextc(rb_parse_state *parse_state)
         parse_state->lex_pend = parse_state->lex_p + blength(v);
     }
     c = (unsigned char)*(parse_state->lex_p++);
+
     if (c == '\r' && parse_state->lex_p < parse_state->lex_pend && *(parse_state->lex_p) == '\n') {
         parse_state->lex_p++;
         c = '\n';
-        parse_state->column = 0;
+        parse_state->column = 1;
     } else if(c == '\n') {
-        parse_state->column = 0;
+        parse_state->column = 1;
     } else {
         parse_state->column++;
     }
-
     return c;
 }
 
@@ -3588,7 +3589,7 @@ static char* parse_comment(struct rb_parse_state* parse_state) {
 }
 
 static int
-yylex(void *yylval_v, void *vstate)
+wrapped_yylex(void *yylval_v, void *yylloc_v, void *vstate)
 {
     register int c;
     int space_seen = 0;
@@ -3598,6 +3599,7 @@ yylex(void *yylval_v, void *vstate)
     enum lex_state last_state;
 
     YYSTYPE *yylval = (YYSTYPE*)yylval_v;
+    YYLTYPE *yylloc = (YYLTYPE*)yylloc_v;
     parse_state = (struct rb_parse_state*)vstate;
 
     parse_state->lval = (void *)yylval;
@@ -3607,7 +3609,8 @@ yylex(void *yylval_v, void *vstate)
     printf("lex char: %c\n", c);
     pushback(c, parse_state);
     */
-
+    int leading_spaces_count = 0;
+    int seen_something_other_than_spaces = 0;
     if (lex_strterm) {
         int token;
         if (nd_type(lex_strterm) == NODE_HEREDOC) {
@@ -3629,7 +3632,11 @@ yylex(void *yylval_v, void *vstate)
 
     cmd_state = command_start;
     command_start = FALSE;
+    int seen_anything_other_than_whitespace = -1;
   retry:
+    if (seen_anything_other_than_whitespace < 1) {
+      seen_anything_other_than_whitespace++;
+    }
     switch (c = nextc()) {
       case '\0':                /* NUL */
       case '\004':              /* ^D */
@@ -3641,6 +3648,10 @@ yylex(void *yylval_v, void *vstate)
       case ' ': case '\t': case '\f': case '\r':
       case '\13': /* '\v' */
         space_seen++;
+        if (seen_anything_other_than_whitespace < 1) {
+          yylloc->first_column++; // handle "   alias :baz :bar"
+          seen_anything_other_than_whitespace = -1;
+        }
         goto retry;
 
       case '#':         /* it's a comment */
@@ -3657,6 +3668,12 @@ yylex(void *yylval_v, void *vstate)
           case EXPR_FNAME:
           case EXPR_DOT:
           case EXPR_CLASS:
+            if (seen_anything_other_than_whitespace < 1) {
+               // handle "\n alias :baz :bar" having a column of 1,
+               // instead of 2
+              yylloc->first_column = 1;
+              seen_anything_other_than_whitespace = -1;
+            }
             goto retry;
           default:
             break;
@@ -4771,9 +4788,22 @@ yylex(void *yylval_v, void *vstate)
     }
 }
 
+static int
+yylex(void *yylval_v, void *yylloc_v, void *vstate)
+{
+  int ret, first_column, first_line;
+  YYLTYPE *yylloc = (YYLTYPE*)yylloc_v;
+  rb_parse_state *st = (rb_parse_state*)vstate;
+  yylloc->first_column = st->column;
+  yylloc->first_line = ruby_sourceline; // FIXME is wrong on "\nfoo"
+  ret = wrapped_yylex(yylval_v, yylloc_v, st);
+  yylloc->last_column = st->column;
+  yylloc->last_line = ruby_sourceline;
+  return ret;
+}
 
 NODE*
-node_newnode(rb_parse_state *st, enum node_type type,
+node_newnode2(rb_parse_state *st, enum node_type type, YYLTYPE yylloc,
                  VALUE a0, VALUE a1, VALUE a2)
 {
     NODE *n = (NODE*)pt_allocate(st, sizeof(NODE));
@@ -4782,12 +4812,26 @@ node_newnode(rb_parse_state *st, enum node_type type,
     nd_set_type(n, type);
     nd_set_line(n, ruby_sourceline);
     n->nd_file = ruby_sourcefile;
+    n->column = yylloc.first_column;
 
     n->u1.value = a0;
     n->u2.value = a1;
     n->u3.value = a2;
 
     return n;
+}
+NODE*
+node_newnode(rb_parse_state *st, enum node_type type,
+                 VALUE a0, VALUE a1, VALUE a2)
+{
+  YYLTYPE *fake = (YYLTYPE*)malloc(sizeof(YYLTYPE));
+  fake->first_column = -1;
+  fake->last_column = -1;
+  fake->first_line = -1;
+  fake->last_line = -1;
+  NODE* ret = node_newnode2(st, type, *fake, a0, a1, a2);
+  free(fake);
+  return ret;
 }
 
 static NODE*

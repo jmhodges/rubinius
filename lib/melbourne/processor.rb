@@ -23,8 +23,8 @@ module Rubinius
 
     # Processing methods
 
-    def process_alias(line, to, from)
-      AST::Alias.new line, to, from
+    def process_alias(line, column, to, from)
+      AST::Alias.new line, column, to, from
     end
 
     def process_and(line, left, right)

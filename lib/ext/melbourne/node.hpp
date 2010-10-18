@@ -23,6 +23,7 @@ namespace melbourne {
   typedef struct RNode {
     unsigned long flags;
     char *nd_file;
+    int column;
     union {
       RNode *node;
       QUID id;
@@ -134,9 +135,11 @@ namespace melbourne {
 #define nd_tval  u2.value
 
 #define NEW_NODE(t,a0,a1,a2) node_newnode((rb_parse_state*)parse_state, \
-    (t),(VALUE)(a0),(VALUE)(a1),(VALUE)(a2))
+                (t),(VALUE)(a0),(VALUE)(a1),(VALUE)(a2))
+#define NEW_NODE2(t,yl,a0,a1,a2) node_newnode2((rb_parse_state*)parse_state, \
+                (t),(YYLTYPE)(yl),(VALUE)(a0),(VALUE)(a1),(VALUE)(a2))
 
-#define NEW_METHOD(n,x) NEW_NODE(NODE_METHOD,x,n,0)
+#define NEW_METHOD(yl,n,x) NEW_NODE2(NODE_METHOD,yl,x,n,0) // UNUSED
 #define NEW_FBODY(n,i,o) NEW_NODE(NODE_FBODY,n,i,o)
 #define NEW_DEFN(i,a,d,p) NEW_NODE(NODE_DEFN,p,i,NEW_RFUNC(a,d))
 #define NEW_DEFS(r,i,a,d) NEW_NODE(NODE_DEFS,r,i,NEW_RFUNC(a,d))
@@ -215,7 +218,7 @@ namespace melbourne {
 #define NEW_SVALUE(a) NEW_NODE(NODE_SVALUE,a,0,0)
 #define NEW_BLOCK_ARG(v) NEW_NODE(NODE_BLOCK_ARG,v,0,local_cnt(v))
 #define NEW_BLOCK_PASS(b) NEW_NODE(NODE_BLOCK_PASS,0,b,0)
-#define NEW_ALIAS(n,o) NEW_NODE(NODE_ALIAS,o,n,0)
+#define NEW_ALIAS(yl,n,o) NEW_NODE2(NODE_ALIAS,yl,o,n,0)
 #define NEW_VALIAS(n,o) NEW_NODE(NODE_VALIAS,o,n,0)
 #define NEW_UNDEF(i) NEW_NODE(NODE_UNDEF,0,i,0)
 #define NEW_CLASS(n,b,s) NEW_NODE(NODE_CLASS,n,NEW_SCOPE(b),(s))

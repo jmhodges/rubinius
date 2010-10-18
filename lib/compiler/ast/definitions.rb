@@ -3,8 +3,9 @@ module Rubinius
     class Alias < Node
       attr_accessor :to, :from
 
-      def initialize(line, to, from)
+      def initialize(line, column, to, from)
         @line = line
+        @column = column
         @to = to
         @from = from
       end
