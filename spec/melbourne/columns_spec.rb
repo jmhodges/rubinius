@@ -22,6 +22,13 @@ describe "The Melbourne parser" do
     parse("foo; self").array[1].column.should eql(6)
   end
 
+  it "sets column on numbers" do
+    parse(" 2").column.should eql(2)
+    parse(" 200000000000000000000000000000000").column.should eql(2)
+    parse("  012").column.should eql(3)
+    parse("  0x10").column.should eql(3)
+  end
+
   def parse(rb_str)
     Rubinius::Melbourne.parse_string(rb_str)
   end
