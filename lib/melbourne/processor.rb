@@ -388,8 +388,8 @@ module Rubinius
       end
     end
 
-    def process_self(line)
-      AST::Self.new line
+    def process_self(line, column)
+      AST::Self.new line, column
     end
 
     def process_splat(line, expr)

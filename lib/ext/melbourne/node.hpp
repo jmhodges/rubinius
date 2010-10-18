@@ -230,7 +230,7 @@ namespace melbourne {
 #define NEW_DOT2(b,e) NEW_NODE(NODE_DOT2,b,e,0)
 #define NEW_DOT3(b,e) NEW_NODE(NODE_DOT3,b,e,0)
 #define NEW_ATTRSET(a) NEW_NODE(NODE_ATTRSET,a,0,0)
-#define NEW_SELF() NEW_NODE(NODE_SELF,0,0,0)
+#define NEW_SELF(yl) NEW_NODE2(NODE_SELF,yl,0,0,0)
 #define NEW_NIL() NEW_NODE(NODE_NIL,0,0,0)
 #define NEW_TRUE() NEW_NODE(NODE_TRUE,0,0,0)
 #define NEW_FALSE() NEW_NODE(NODE_FALSE,0,0,0)

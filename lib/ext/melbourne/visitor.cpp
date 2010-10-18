@@ -979,7 +979,7 @@ namespace melbourne {
       break;
 
     case NODE_SELF:
-      tree = rb_funcall(ptp, rb_sSelf, 1, line);
+      tree = rb_funcall(ptp, rb_sSelf, 2, line, column);
       break;
 
     case NODE_TRUE:

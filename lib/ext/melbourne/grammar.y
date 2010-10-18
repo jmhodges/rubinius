@@ -174,7 +174,10 @@ static NODE *new_super(rb_parse_state*,NODE*);
 static NODE *new_yield(rb_parse_state*,NODE*);
 
 static NODE *mel_gettable(rb_parse_state*,QUID);
+// FIXME remove mel_gettable2
+static NODE *mel_gettable2(rb_parse_state*,QUID,YYLTYPE);
 #define gettable(i) mel_gettable((rb_parse_state*)parse_state, i)
+#define gettable2(i,yl) mel_gettable2((rb_parse_state*)(parse_state), (i), (YYLTYPE)(yl))
 static NODE *assignable(QUID,NODE*,rb_parse_state*);
 static NODE *aryset(NODE*,NODE*,rb_parse_state*);
 static NODE *attrset(NODE*,QUID,rb_parse_state*);
@@ -2385,7 +2388,7 @@ variable        : tIDENTIFIER
 
 var_ref         : variable
                     {
-                        $$ = gettable($1);
+                        $$ = gettable2($1, @1);
                     }
                 ;
 
@@ -2907,6 +2910,7 @@ pushback(int c, rb_parse_state *parse_state)
 {
     if (c == -1) return;
     parse_state->lex_p--;
+    parse_state->column--;
 }
 
 /* Indicates if we're currently at the beginning of a line. */
@@ -4820,16 +4824,24 @@ node_newnode2(rb_parse_state *st, enum node_type type, YYLTYPE yylloc,
 
     return n;
 }
-NODE*
-node_newnode(rb_parse_state *st, enum node_type type,
-                 VALUE a0, VALUE a1, VALUE a2)
+
+YYLTYPE *fake_yylloc()
 {
   YYLTYPE *fake = (YYLTYPE*)malloc(sizeof(YYLTYPE));
   fake->first_column = -1;
   fake->last_column = -1;
   fake->first_line = -1;
   fake->last_line = -1;
-  NODE* ret = node_newnode2(st, type, *fake, a0, a1, a2);
+  return fake;
+}
+
+
+NODE*
+node_newnode(rb_parse_state *st, enum node_type type,
+                 VALUE a0, VALUE a1, VALUE a2)
+{
+  YYLTYPE *fake = fake_yylloc();
+  NODE *ret = node_newnode2(st, type, *fake, a0, a1, a2);
   free(fake);
   return ret;
 }
@@ -5160,10 +5172,10 @@ match_gen(NODE *node1, NODE *node2, rb_parse_state *parse_state)
 }
 
 static NODE*
-mel_gettable(rb_parse_state *parse_state, QUID id)
+mel_gettable2(rb_parse_state *parse_state, QUID id, YYLTYPE yylloc)
 {
-    if (id == kSELF) {
-        return NEW_SELF();
+if (id == kSELF) {
+        return NEW_SELF(yylloc);
     }
     else if (id == kNIL) {
         return NEW_NIL();
@@ -5200,6 +5212,15 @@ mel_gettable(rb_parse_state *parse_state, QUID id)
     /* FIXME: indicate which identifier. */
     rb_compile_error(parse_state, "identifier is not valid 1\n");
     return 0;
+}
+
+static NODE*
+mel_gettable(rb_parse_state *parse_state, QUID id)
+{
+  YYLTYPE *fake = fake_yylloc();
+  NODE *node = mel_gettable2(parse_state, id, *fake);
+  free(fake);
+  return node;
 }
 
 static void

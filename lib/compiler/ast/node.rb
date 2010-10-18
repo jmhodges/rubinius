@@ -43,9 +43,10 @@ module Rubinius
         end
       end
 
-      # FIXME add @column and column thing here
-      def initialize(line)
+      # FIXME make column required
+      def initialize(line, column = nil)
         @line = line
+        @column = column
       end
 
       def pos(g)
