@@ -3593,6 +3593,8 @@ wrapped_yylex(void *yylval_v, void *yylloc_v, void *vstate)
 {
     register int c;
     int space_seen = 0;
+    int seen_anything_other_than_whitespace = -1;
+
     int cmd_state;
     struct rb_parse_state *parse_state;
     bstring cur_line;
@@ -3609,8 +3611,7 @@ wrapped_yylex(void *yylval_v, void *yylloc_v, void *vstate)
     printf("lex char: %c\n", c);
     pushback(c, parse_state);
     */
-    int leading_spaces_count = 0;
-    int seen_something_other_than_spaces = 0;
+
     if (lex_strterm) {
         int token;
         if (nd_type(lex_strterm) == NODE_HEREDOC) {
@@ -3632,7 +3633,6 @@ wrapped_yylex(void *yylval_v, void *yylloc_v, void *vstate)
 
     cmd_state = command_start;
     command_start = FALSE;
-    int seen_anything_other_than_whitespace = -1;
   retry:
     if (seen_anything_other_than_whitespace < 1) {
       seen_anything_other_than_whitespace++;
