@@ -1022,7 +1022,14 @@ namespace melbourne {
 
       /* node id node */
       if (node->nd_1st == RNODE(1)) {
-        recv = process_parse_tree(parse_state, ptp, NEW_SELF(), locals);
+        // FIXME hack to get this to compile :( Didn't see it when I
+        // made my tests pass due to the vagaries of build systems.
+        YYLTYPE *yl = (YYLTYPE*)malloc(sizeof(YYLTYPE));
+        yl->first_column = node->column;
+        yl->first_line = nd_line(node);
+        yl->last_column = -1; yl->last_line = -1;
+        recv = process_parse_tree(parse_state, ptp, NEW_SELF(*yl), locals);
+        free(yl);
       } else {
         recv = process_parse_tree(parse_state, ptp, node->nd_1st, locals);
       }
