@@ -884,35 +884,35 @@ namespace melbourne {
       break;
 
     case NODE_FIXNUM:
-      tree = rb_funcall(ptp, rb_sFixnum, 2, line, INT2FIX(node->nd_cnt));
+      tree = rb_funcall(ptp, rb_sFixnum, 3, line, column, INT2FIX(node->nd_cnt));
       break;
 
     case NODE_NUMBER:
-      tree = rb_funcall(ptp, rb_sNumber, 3, line, INT2FIX(0),
+      tree = rb_funcall(ptp, rb_sNumber, 4, line, column, INT2FIX(0),
           string_newfrombstr(node->nd_str));
       bdestroy(node->nd_str);
       break;
 
     case NODE_HEXNUM:
-      tree = rb_funcall(ptp, rb_sNumber, 3, line, INT2FIX(16),
+      tree = rb_funcall(ptp, rb_sNumber, 4, line, column, INT2FIX(16),
           string_newfrombstr(node->nd_str));
       bdestroy(node->nd_str);
       break;
 
     case NODE_BINNUM:
-      tree = rb_funcall(ptp, rb_sNumber, 3, line, INT2FIX(2),
+      tree = rb_funcall(ptp, rb_sNumber, 4, line, column, INT2FIX(2),
           string_newfrombstr(node->nd_str));
       bdestroy(node->nd_str);
       break;
 
     case NODE_OCTNUM:
-      tree = rb_funcall(ptp, rb_sNumber, 3, line, INT2FIX(8),
+      tree = rb_funcall(ptp, rb_sNumber, 4, line, column, INT2FIX(8),
           string_newfrombstr(node->nd_str));
       bdestroy(node->nd_str);
     break;
 
     case NODE_FLOAT:
-      tree = rb_funcall(ptp, rb_sFloat, 2, line,
+      tree = rb_funcall(ptp, rb_sFloat, 3, line, column,
           string_newfrombstr(node->nd_str));
       bdestroy(node->nd_str);
     break;

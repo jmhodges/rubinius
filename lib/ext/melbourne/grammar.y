@@ -3915,7 +3915,7 @@ wrapped_yylex(void *yylval_v, void *yylloc_v, void *vstate)
         }
         c &= 0xff;
         parse_state->lex_state = EXPR_END;
-        pslval->node = NEW_FIXNUM((intptr_t)c);
+        pslval->node = NEW_FIXNUM((intptr_t)c, *yylloc);
         return tINTEGER;
 
       case '&':
@@ -4090,7 +4090,7 @@ wrapped_yylex(void *yylval_v, void *yylloc_v, void *vstate)
                         yyerror("numeric literal without digits");
                     }
                     else if (nondigit) goto trailing_uc;
-                    pslval->node = NEW_HEXNUM(string_new2(tok()));
+                    pslval->node = NEW_HEXNUM(string_new2(tok()), *yylloc);
                     return tINTEGER;
                 }
                 if (c == 'b' || c == 'B') {
@@ -4114,7 +4114,7 @@ wrapped_yylex(void *yylval_v, void *yylloc_v, void *vstate)
                         yyerror("numeric literal without digits");
                     }
                     else if (nondigit) goto trailing_uc;
-                    pslval->node = NEW_BINNUM(string_new2(tok()));
+                    pslval->node = NEW_BINNUM(string_new2(tok()), *yylloc);
                     return tINTEGER;
                 }
                 if (c == 'd' || c == 'D') {
@@ -4138,7 +4138,7 @@ wrapped_yylex(void *yylval_v, void *yylloc_v, void *vstate)
                         yyerror("numeric literal without digits");
                     }
                     else if (nondigit) goto trailing_uc;
-                    pslval->node = NEW_NUMBER(string_new2(tok()));
+                    pslval->node = NEW_NUMBER(string_new2(tok()), *yylloc);
                     return tINTEGER;
                 }
                 if (c == '_') {
@@ -4169,7 +4169,7 @@ wrapped_yylex(void *yylval_v, void *yylloc_v, void *vstate)
                         pushback(c, parse_state);
                         tokfix();
                         if (nondigit) goto trailing_uc;
-                        pslval->node = NEW_OCTNUM(string_new2(tok()));
+                        pslval->node = NEW_OCTNUM(string_new2(tok()), *yylloc);
                         return tINTEGER;
                     }
                     if (nondigit) {
@@ -4185,7 +4185,7 @@ wrapped_yylex(void *yylval_v, void *yylloc_v, void *vstate)
                 }
                 else {
                     pushback(c, parse_state);
-                    pslval->node = NEW_FIXNUM(0);
+                    pslval->node = NEW_FIXNUM(0, *yylloc);
                     return tINTEGER;
                 }
             }
@@ -4259,10 +4259,10 @@ wrapped_yylex(void *yylval_v, void *yylloc_v, void *vstate)
                 yyerror(tmp);
             }
             if (is_float) {
-                pslval->node = NEW_FLOAT(string_new2(tok()));
+                pslval->node = NEW_FLOAT(string_new2(tok()), *yylloc);
                 return tFLOAT;
             }
-            pslval->node = NEW_NUMBER(string_new2(tok()));
+            pslval->node = NEW_NUMBER(string_new2(tok()), *yylloc);
             return tINTEGER;
         }
 
@@ -5190,7 +5190,7 @@ if (id == kSELF) {
         return NEW_FILE();
     }
     else if (id == k__LINE__) {
-        return NEW_FIXNUM(ruby_sourceline);
+        return NEW_FIXNUM(ruby_sourceline, yylloc);
     }
     else if (is_local_id(id)) {
         if (local_id(id)) return NEW_LVAR(id);

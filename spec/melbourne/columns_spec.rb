@@ -27,6 +27,7 @@ describe "The Melbourne parser" do
     parse(" 200000000000000000000000000000000").column.should eql(2)
     parse("  012").column.should eql(3)
     parse("  0x10").column.should eql(3)
+    parse(" 0.245").column.should eql(2)
   end
 
   def parse(rb_str)

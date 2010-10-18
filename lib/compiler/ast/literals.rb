@@ -78,8 +78,9 @@ module Rubinius
     class FloatLiteral < Node
       attr_accessor :value
 
-      def initialize(line, str)
+      def initialize(line, column, str)
         @line = line
+        @column = column
         @value = str.to_f
       end
 
@@ -182,8 +183,9 @@ module Rubinius
     class NumberLiteral < Node
       attr_accessor :value
 
-      def initialize(line, value)
+      def initialize(line, column, value)
         @line = line
+        @column = column
         @value = value
       end
 
@@ -203,8 +205,9 @@ module Rubinius
     end
 
     class FixnumLiteral < NumberLiteral
-      def initialize(line, value)
+      def initialize(line, column, value)
         @line = line
+        @column = column
         @value = value
       end
 

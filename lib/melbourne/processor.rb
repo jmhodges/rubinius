@@ -215,8 +215,8 @@ module Rubinius
       AST::File.new line
     end
 
-    def process_fixnum(line, value)
-      AST::FixnumLiteral.new line, value
+    def process_fixnum(line, column, value)
+      AST::FixnumLiteral.new line, column, value
     end
 
     def process_flip2(line, start, finish)
@@ -227,8 +227,8 @@ module Rubinius
       AST::Flip3.new line, start, finish
     end
 
-    def process_float(line, str)
-      AST::FloatLiteral.new line, str
+    def process_float(line, column, str)
+      AST::FloatLiteral.new line, column, str
     end
 
     def process_for(line, iter, arguments, body)
@@ -318,13 +318,13 @@ module Rubinius
       AST::NthRef.new line, ref
     end
 
-    def process_number(line, base, str)
+    def process_number(line, column, base, str)
       value = str.to_i base
       case value
       when Fixnum
-        AST::FixnumLiteral.new line, value
+        AST::FixnumLiteral.new line, column, value
       when Bignum
-        AST::NumberLiteral.new line, value
+        AST::NumberLiteral.new line, column, value
       end
     end
 
